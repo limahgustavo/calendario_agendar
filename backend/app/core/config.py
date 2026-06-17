@@ -43,6 +43,8 @@ class Settings(BaseSettings):
         return "https://sandbox.asaas.com/api/v3"
 
     # Z-API (WhatsApp)
+    # ZAPI_API_URL: URL base da instância (ex: https://api.z-api.io ou URL customizada do plano)
+    ZAPI_API_URL: str = "https://api.z-api.io"
     ZAPI_INSTANCE_ID: str = ""
     ZAPI_TOKEN: str = ""
     ZAPI_CLIENT_TOKEN: str = ""

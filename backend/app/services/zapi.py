@@ -6,10 +6,9 @@ from app.core.config import settings
 class ZAPIService:
     @property
     def base_url(self) -> str:
-        return (
-            f"https://api.z-api.io/instances/{settings.ZAPI_INSTANCE_ID}"
-            f"/token/{settings.ZAPI_TOKEN}"
-        )
+        # ZAPI_API_URL é a "API da instância" fornecida no painel Z-API
+        api = settings.ZAPI_API_URL.rstrip("/")
+        return f"{api}/instances/{settings.ZAPI_INSTANCE_ID}/token/{settings.ZAPI_TOKEN}"
 
     @property
     def headers(self) -> dict:
