@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,6 +12,7 @@ const schema = z.object({
   client_name: z.string().min(2, 'Nome muito curto'),
   client_email: z.string().email('Email inválido'),
   client_phone: z.string().min(8, 'Telefone inválido'),
+  client_cpf_cnpj: z.string().min(11, 'CPF inválido (mínimo 11 dígitos)').max(18, 'CNPJ inválido'),
   notes: z.string().optional(),
 })
 
@@ -19,13 +20,14 @@ type FormData = z.infer<typeof schema>
 
 export default function BookingPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [draft, setDraft] = useState<BookingDraft | null>(null)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('booking')
-    if (!stored) { navigate('/'); return }
-    setDraft(JSON.parse(stored))
-  }, [navigate])
+    const state = location.state as BookingDraft | null
+    if (!state?.service || !state.date || !state.time_str) { navigate('/'); return }
+    setDraft(state)
+  }, [location.state, navigate])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -33,26 +35,33 @@ export default function BookingPage() {
 
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
-      if (!draft?.service || !draft.date || !draft.time_str) throw new Error('draft inválido')
-      const [h, m] = draft.time_str.split(':').map(Number)
-      const dt = new Date(draft.date + 'T00:00:00')
-      dt.setHours(h, m, 0, 0)
+      if (!draft?.service || !draft.date || !draft.time_str) throw new Error('Dados do agendamento perdidos. Volte e selecione novamente.')
+      const scheduled_at = `${draft.date}T${draft.time_str}:00`
       return appointmentsApi.create({
         service_id: draft.service.id,
-        scheduled_at: dt.toISOString(),
+        scheduled_at,
         ...data,
       })
     },
     onSuccess: (res) => {
       sessionStorage.removeItem('booking')
       sessionStorage.setItem('booking_result', JSON.stringify(res))
-      navigate(`/confirmacao/${res.appointment_id}`)
+      navigate(`/confirmacao/${res.appointment_id}`, { state: res })
     },
   })
 
   if (!draft) return null
 
   const deposit = draft.service ? draft.service.price * 0.5 : 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const errorMsg = mutation.isError ? ((mutation.error as any)?.response?.data?.detail || (mutation.error as Error)?.message || 'Erro ao criar agendamento.') : null
+
+  const fields = [
+    { name: 'client_name', label: 'Nome completo', type: 'text', placeholder: 'Seu nome' },
+    { name: 'client_email', label: 'Email', type: 'email', placeholder: 'seu@email.com' },
+    { name: 'client_phone', label: 'WhatsApp', type: 'tel', placeholder: '(11) 99999-9999' },
+    { name: 'client_cpf_cnpj', label: 'CPF ou CNPJ', type: 'text', placeholder: '000.000.000-00' },
+  ] as const
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white py-10 px-4">
@@ -89,21 +98,17 @@ export default function BookingPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
-          {[
-            { name: 'client_name', label: 'Nome completo', type: 'text', placeholder: 'Seu nome' },
-            { name: 'client_email', label: 'Email', type: 'email', placeholder: 'seu@email.com' },
-            { name: 'client_phone', label: 'WhatsApp', type: 'tel', placeholder: '(11) 99999-9999' },
-          ].map(({ name, label, type, placeholder }) => (
+          {fields.map(({ name, label, type, placeholder }) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
               <input
                 type={type}
                 placeholder={placeholder}
-                {...register(name as keyof FormData)}
+                {...register(name)}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
-              {errors[name as keyof FormData] && (
-                <p className="text-red-500 text-xs mt-1">{errors[name as keyof FormData]?.message}</p>
+              {errors[name] && (
+                <p className="text-red-500 text-xs mt-1">{errors[name]?.message}</p>
               )}
             </div>
           ))}
@@ -118,10 +123,8 @@ export default function BookingPage() {
             />
           </div>
 
-          {mutation.isError && (
-            <p className="text-red-500 text-sm">
-              Erro ao criar agendamento. Tente novamente.
-            </p>
+          {errorMsg && (
+            <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl p-3">{errorMsg}</p>
           )}
 
           <button

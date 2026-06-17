@@ -1,0 +1,440 @@
+# SISTEMA DE AGENDAMENTO NAIL DESIGNER - SPEC COMPLETA
+
+**Versão:** 2.0 | **Data:** 16/06/2026 | **Prioridade:** Máxima Eficiência
+
+---
+
+## 1. VISÃO GERAL
+
+Sistema de agendamento para nail designers com 3 painéis distintos:
+- **Painel Cliente** → agendas em múltiplos studios, gerenciar dados
+- **Painel Studio/Nail Designer** → controlar agendamentos, gerar links/QR, visualizar pendentes
+- **Painel Admin Geral** → monitorar todos os clientes, pagamentos, repasses semanais
+
+**Fluxo Principal:** Cliente agenda → paga 100% no sistema → WhatsApp automático → Studio atende → Admin libera repasse semanal
+
+---
+
+## 2. AUTENTICAÇÃO & REGISTRO
+
+### 2.1 Registro do Cliente (Primeira Vez)
+1. Cliente acessa e clica "Agendar"
+2. Preenche: Nome, Email, WhatsApp, Celular
+3. **Sistema envia email** com link "Criar Senha"
+4. Cliente clica link → define senha → acesso garantido
+5. Cliente recebe boas-vindas no WhatsApp
+
+### 2.2 Login
+- Email + Senha
+- "Esqueci minha senha" → Email com botão "Redefinir Senha"
+- Sessão mantida (cookie/token JWT) por 30 dias
+
+### 2.3 Roles do Sistema
+- **Cliente** → agenda, visualiza histórico, edita perfil
+- **Nail Designer (Studio)** → cria agendamentos, edita disponibilidade, gera links/QR
+- **Admin Geral** → acesso total, monitora tudo, aprova repasses
+
+---
+
+## 3. PAINEL CLIENTE
+
+### 3.1 Dashboard
+- **Meus Agendamentos** → próximos agendamentos de TODOS os studios cadastrados (filtrados por data)
+- **Histórico** → agendamentos passados, serviços realizados, quanto pagou
+- **Meus Dados** → editar nome, email, WhatsApp, celular
+- **Comprovantes** → download dos 50% pagos (PDF)
+- **Recuperação de Senha** → botão "Alterar Senha" com campo de nova senha
+
+### 3.2 Múltiplos Studios
+- Cliente pode agendar em diferentes nail studios
+- Um painel unificado mostra TODOS agendamentos
+- Ordenação por: data próxima, studio, serviço
+- Filtros: "Próximos", "Passados", "Por Studio"
+
+### 3.3 Agendamentos
+- Visualizar: data, horário, serviço, local (nome do studio), valor total
+- Ações: remarcar (data/hora), cancelar (sem reembolso dos 50%), confirmar presença
+- Status visual: "Agendado", "Confirmado", "Cancelado", "Realizado"
+
+---
+
+## 4. PAINEL STUDIO / NAIL DESIGNER
+
+### 4.1 Dashboard Principal
+- **Calendário do Mês** → visualizar todos agendamentos confirmados
+- **Próximos Agendamentos** → card com cliente, serviço, hora, status
+- **Clientes Pendentes** → agendamentos feitos mas não comparecidos (até 2h depois da hora marcada)
+- **Faturamento Mensal** → valor total de entradas (50% em mão, 50% a receber)
+
+### 4.2 Gerenciar Agendamentos
+1. **Criar Agendamento Manual**
+   - Nail designer pode criar agendamento para cliente (sem pagamento prévio)
+   - Opção: gerar link do cliente + QR code
+   - Cliente recebe email + WhatsApp com link (sem login necessário)
+   - Cliente clica → paga os 50% → agendamento confirmado
+
+2. **Visualizar Pendentes**
+   - Clientes que agendaram mas não confirmaram presença (2h de tolerância)
+   - Botões: "Enviar Lembrete WhatsApp", "Remarcar", "Cancelar"
+
+3. **Editar Disponibilidade (Mês a Mês)**
+   - Nail designer configura: "Março → Seg-Sex 08h e 13h, Sáb 08h apenas"
+   - Sistema bloqueia automaticamente horários não disponíveis
+   - Pode alterar a qualquer momento (retroativo: apenas futuros)
+
+4. **Gerar Link + QR Code**
+   - Cria link único: `www.sistema.com/booking/studio-xyz`
+   - QR aponta para o mesmo link
+   - Cliente clica → vê calendário do studio → agenda + paga
+   - Nail designer baixa em PNG/PDF para imprimir ou compartilhar
+
+### 4.3 Tabela de Preços (Dinâmica)
+Nail designer cadastra SUAS tabelas de preço:
+
+**Aplicação de Unhas:**
+- Fibra: R$ 130
+- Tips/molde: R$ 120
+- Banho de gel: R$ 100
+- Soft Gel: R$ 70
+- Blindagem: R$ 60
+- Esmaltação em Gel: R$ 50
+
+**Manutenção:**
+- Fibra: R$ 120
+- Tips/molde: R$ 110
+- Banho de gel: R$ 100
+- Soft Gel: R$ 70
+- Blindagem: R$ 60
+
+**Outros Serviços:**
+- Remoção: R$ 30
+- Unha quebrada (em manutenção): R$ 5
+- Unha quebrada (fora manutenção): R$ 10
+
+Nail designer pode editar preços → vale para novos agendamentos
+
+### 4.4 Planos Mensais
+**Opções de Plano (pago mensalmente):**
+- **Básico** (R$ 29/mês) → até 10 agendamentos/mês
+- **Premium** (R$ 79/mês) → até 50 agendamentos/mês, prioridade suporte
+- **Pro** (R$ 199/mês) → ilimitado, relatórios avançados, integração com redes sociais
+
+Sistema bloqueia agendamentos acima do limite do plano
+
+---
+
+## 5. PAINEL ADMIN GERAL (ADMIN ÚNICO)
+
+### 5.1 Dashboard
+- **Total Faturado (Mês)** → soma de todos os 50% recebidos
+- **Clientes Ativos** → quantidade total
+- **Studios Cadastrados** → quantidade total
+- **Taxa do Sistema** → % que fico com (configurável, default 20%)
+
+### 5.2 Monitorar Clientes
+- **Listar Todos** → tabela com: nome, email, studios cadastrados, total gasto, data cadastro
+- **Filtros** → por período, por studio, por status (ativo/inativo)
+- **Clique em Cliente** → detalhes, histórico, agendamentos
+- **Ação** → bloquear cliente (fraude), resetar dados, ver relatório
+
+### 5.3 Monitorar Studios
+- **Listar Todos** → tabela com: nome, nail designer, plano, faturamento mês, data cadastro
+- **Clique em Studio** → detalhes, tabela de preços, agendamentos, clientes
+- **Ação** → bloquear studio, editar plano, resetar, ver relatório
+
+### 5.4 Repasses Semanais (CRÍTICO)
+**Automático todas as sextas-feiras (ou dia configurável):**
+
+1. **Cálculo**
+   - Sistema identifica todos agendamentos confirmados e pagos da semana
+   - Soma os 50% de cada um
+   - Agrupa por nail designer
+   - Calcula taxa do admin (20% por padrão) antes do repasse
+
+   **Exemplo:**
+   - Agendamentos da semana: R$ 500 (50% = R$ 250 a repassar)
+   - Taxa admin (20%): R$ 50
+   - Valor para nail designer: R$ 200
+
+2. **Aprovação (Admin)**
+   - Admin vê fila de repasses semanais
+   - Pode visualizar detalhes de cada transação
+   - Botão "Aprovar" ou "Bloquear"
+   - Se aprovado → transferência automática (via Pix/conta bancária pré-registrada)
+
+3. **Notificação**
+   - Nail designer recebe email: "Repasse de R$ 200 aprovado para sua conta"
+   - Cliente recebe email: "Você tem R$ 100 pendente de pagamento do agendamento (50% final)"
+
+4. **Relatório**
+   - Admin vê historicamente: datas de repasse, valores, nail designers beneficiados
+   - Pode exportar em CSV/PDF
+
+---
+
+## 6. FLUXO DE AGENDAMENTO COMPLETO
+
+### 6.1 Cliente Clica em "Agendar"
+1. Vê calendário do MÊS ATUAL
+2. Seleciona:
+   - **Serviço** (dropdown com tabela de preços do studio)
+   - **Data** (apenas datas/horários disponíveis em VERDE)
+   - **Horário** (08:00 ou 13:00, conforme disponibilidade)
+3. Sistema calcula:
+   - Preço: R$ 130 (Fibra)
+   - **50% = R$ 65** (pré-pagamento obrigatório)
+   - 50% = R$ 65 (pagamento no dia do atendimento)
+
+### 6.2 Pagamento (100% no Sistema)
+1. Cliente clica "Confirmar Agendamento"
+2. **Sistema abre gateway Stripe ou Mercado Pago**
+3. Cliente paga **R$ 130 COMPLETO** (100%)
+4. ✅ Pagamento confirmado
+
+### 6.3 Confirmação Automática
+1. ✅ Agendamento confirmado imediatamente
+2. **Email enviado** com:
+   - Resumo do agendamento (data, hora, serviço, local)
+   - Comprovante de pagamento
+   - Link de confirmação de presença
+3. **WhatsApp automático** (via Twilio/WhatsApp Business API) ao cliente:
+   - "Olá! Seu agendamento está confirmado para 15/03 às 13:00 - Fibra (R$130)"
+   - Botões: [Confirmar] [Remarcar] [Cancelar]
+
+### 6.4 Lembretes (24h antes)
+- **24 horas antes:** WhatsApp automático
+  - "Oi! Tudo bem? Seu agendamento é AMANHÃ às 13:00! Confirma aí 👇"
+  - Botões: [Confirmar] [Cancelar]
+- **Se não confirmar:** 2 horas antes, novo lembrete
+
+### 6.5 Dia do Atendimento
+- Cliente chega no horário
+- **Atrasos até 15 min** → só manutenção (sem serviço novo)
+- **Atrasos 15-20 min** → remarcar para outro dia
+- Serviço realizado ✅
+
+### 6.6 Finalização
+- Cliente sai satisfeito
+- **Opcional:** sistema pede avaliação via WhatsApp (estrelas 1-5)
+
+---
+
+## 7. TABELAS DO BANCO DE DADOS
+
+```
+USERS
+├── id (UUID)
+├── email (unique)
+├── password_hash
+├── nome
+├── whatsapp
+├── celular
+├── role (cliente, nail_designer, admin)
+├── ativo (boolean)
+├── data_cadastro
+└── ultima_atualizacao
+
+STUDIOS
+├── id (UUID)
+├── nail_designer_id (FK → USERS)
+├── nome_studio
+├── email
+├── whatsapp
+├── plano (basico, premium, pro)
+├── data_cadastro
+├── ativo
+└── preco_tabela (JSON: serviços + preços)
+
+DISPONIBILIDADE
+├── id (UUID)
+├── studio_id (FK → STUDIOS)
+├── mes (integer: 1-12)
+├── ano (integer)
+├── dias_semana (JSON: [1,2,3,4,5] = seg-sex)
+├── horarios (JSON: ["08:00", "13:00"])
+└── data_criacao
+
+AGENDAMENTOS
+├── id (UUID)
+├── cliente_id (FK → USERS)
+├── studio_id (FK → STUDIOS)
+├── servico (string)
+├── preco (float)
+├── data (date)
+├── hora (time)
+├── status (agendado, confirmado, cancelado, realizado)
+├── confirmado_cliente (boolean)
+├── data_criacao
+└── notas (text)
+
+PAGAMENTOS
+├── id (UUID)
+├── agendamento_id (FK → AGENDAMENTOS)
+├── valor (float)
+├── gateway (stripe, mercadopago)
+├── transaction_id (string)
+├── status (processado, falhou, reembolsado)
+├── comprovante_url
+├── data_pagamento
+└── data_criacao
+
+REPASSES
+├── id (UUID)
+├── nail_designer_id (FK → USERS)
+├── semana (date: segunda da semana)
+├── valor_total (float)
+├── taxa_admin (float)
+├── valor_liquido (float)
+├── status (pendente_aprovacao, aprovado, transferido)
+├── data_criacao
+├── data_transferencia
+└── detalhes_agendamentos (JSON array de IDs)
+
+PLANOS
+├── id (UUID)
+├── nome (basico, premium, pro)
+├── valor_mensal (float)
+├── limite_agendamentos (int)
+├── features (JSON array)
+└── ativo (boolean)
+```
+
+---
+
+## 8. FLUXO DE MENSAGENS (WhatsApp via Twilio)
+
+### Mensagem ao Agendar (Imediato após pagamento)
+```
+Olá! 🎉
+
+Seu agendamento foi confirmado com sucesso!
+
+📅 Data: 15 de março de 2025
+🕐 Horário: 13:00
+💅 Serviço: Fibra
+📍 Local: Studio XYZ
+💰 Valor: R$ 130
+
+[Confirmar Presença] [Remarcar] [Cancelar]
+```
+
+### Lembrete 24h Antes
+```
+Oi! Tudo bem? 👋
+
+Seu agendamento é AMANHÃ às 13:00!
+
+💅 Fibra - Studio XYZ
+
+[Confirmar] [Cancelar]
+```
+
+### Lembrete 2h Antes (se não confirmar 24h antes)
+```
+Último lembrete! ⏰
+
+Você tem agendamento em 2 HORAS!
+
+Studio XYZ - 13:00
+
+[Confirmar] [Cancelar]
+```
+
+### Após Finalização (Opcional)
+```
+Obrigada pela visita! 💅✨
+
+Como foi seu atendimento?
+
+⭐⭐⭐⭐⭐ Excelente
+⭐⭐⭐⭐ Bom
+⭐⭐⭐ Aceitável
+```
+
+---
+
+## 9. POLÍTICAS DO SISTEMA
+
+- **Pagamento:** 100% obrigatório no ato do agendamento (via Stripe/MercadoPago)
+- **Atrasos até 15 min:** apenas manutenção (sem serviço novo)
+- **Atrasos 15-20 min:** remarcar para outro dia
+- **Cancelamento:** SEM reembolso dos 50% pago (80% do sistema, 20% da política)
+- **Repasse:** toda sexta-feira, automático e transferido via Pix
+- **Taxa Admin:** 20% de cada agendamento (configurável no admin)
+- **Planos:** renovação automática mensalmente, cancelamento a qualquer momento
+
+---
+
+## 10. INTEGRAÇÃO EXTERNA
+
+### Pagamento
+- **Stripe** (Principal) ou **Mercado Pago** (Alternativa)
+- Webhook para confirmar pagamentos
+- PCI compliance obrigatório
+
+### WhatsApp
+- **Twilio** (recomendado) ou **WhatsApp Business API**
+- Número pré-configurado por studio
+- Templates de mensagens editáveis pelo admin
+
+### Email
+- SendGrid ou Amazon SES
+- Templates customizáveis
+
+### Dados Bancários (para repasses)
+- Nail designer registra conta (CPF, banco, agência, conta) uma vez
+- Admin valida antes de liberar repasses
+
+---
+
+## 11. SEGURANÇA
+
+- **Senhas:** bcrypt com salt
+- **Tokens:** JWT com expiração 30 dias
+- **HTTPS:** obrigatório
+- **CORS:** só domínios autorizados
+- **Rate Limiting:** max 5 tentativas de login / 15 min
+- **Dados Bancários:** criptografados, acesso só admin
+- **Conformidade:** LGPD (deletar dados do cliente se solicitado)
+
+---
+
+## 12. PRIORIDADES DE DESENVOLVIMENTO (MVP)
+
+1. ✅ Autenticação (registro, login, reset senha)
+2. ✅ Painel Cliente (agendas, múltiplos studios, editar dados)
+3. ✅ Painel Studio (disponibilidade, gerar link/QR, tabela preços)
+4. ✅ Pagamento integrado (Stripe/Mercado Pago)
+5. ✅ WhatsApp automático (confirmação + lembretes)
+6. ✅ Painel Admin (monitorar clientes, repasses semanais)
+7. ✅ Repasse automático (cálculo, aprovação, transferência)
+8. ⚠️ Avaliações de clientes (segunda fase)
+9. ⚠️ Relatórios avançados (segunda fase)
+10. ⚠️ Integração redes sociais (segunda fase)
+
+---
+
+## 13. TECH STACK RECOMENDADO
+
+- **Backend:** Node.js + Express (ou Python + FastAPI)
+- **Frontend:** React + Next.js
+- **Banco:** PostgreSQL (relationally sound)
+- **Cache:** Redis (sessões, rate limiting)
+- **Fila:** Bull/RabbitMQ (WhatsApp assíncrono, repasses)
+- **Hosting:** Vercel (Frontend) + Railway/Heroku (Backend)
+- **Auth:** JWT + bcrypt
+- **Payment:** Stripe SDK + Mercado Pago SDK
+
+---
+
+## 14. NOTAS GERAIS
+
+- Sistema deve ser **super rápido** (<1s de resposta)
+- **Responsivo** (mobile first - maioria dos clientes usa celular)
+- **Escalável** (estrutura pronta para 10k+ agendamentos/mês)
+- **Confiável** (zero downtime, backups automáticos)
+- **UX Clara** (intuição: cliente → agenda → paga → confirmado)
+
+---
+
+**Status:** Pronto para desenvolvimento | **Eficiência:** Máxima | **Clareza:** 100%

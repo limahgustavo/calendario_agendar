@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useEffect } from 'react'
 import { CheckCircle } from 'lucide-react'
 
 interface BookingResult {
@@ -9,14 +9,25 @@ interface BookingResult {
 }
 
 export default function ConfirmationPage() {
+  const location = useLocation()
   const navigate = useNavigate()
-  const [result, setResult] = useState<BookingResult | null>(null)
+  const { id } = useParams()
+
+  const stateResult = location.state as BookingResult | null
+  const stored = sessionStorage.getItem('booking_result')
+  const storedResult: BookingResult | null = stored ? JSON.parse(stored) : null
+
+  // Prefer router state, fall back to sessionStorage
+  const result: BookingResult | null = stateResult || storedResult
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('booking_result')
-    if (!stored) { navigate('/'); return }
-    setResult(JSON.parse(stored))
-  }, [navigate])
+    if (!result) {
+      navigate('/')
+      return
+    }
+    // Clean up sessionStorage after reading
+    sessionStorage.removeItem('booking_result')
+  }, [result, navigate])
 
   if (!result) return null
 

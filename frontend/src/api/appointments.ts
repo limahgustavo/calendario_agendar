@@ -7,6 +7,7 @@ export interface CreateAppointmentPayload {
   client_name: string
   client_email: string
   client_phone: string
+  client_cpf_cnpj?: string
   notes?: string
 }
 

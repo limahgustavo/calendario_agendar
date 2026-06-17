@@ -3,6 +3,7 @@ import CalendarPage from '@/pages/client/CalendarPage'
 import BookingPage from '@/pages/client/BookingPage'
 import ConfirmationPage from '@/pages/client/ConfirmationPage'
 import ActionPage from '@/pages/client/ActionPage'
+import PagamentoPendentePage from '@/pages/client/PagamentoPendentePage'
 import LoginPage from '@/pages/admin/LoginPage'
 import DashboardPage from '@/pages/admin/DashboardPage'
 import AppointmentsPage from '@/pages/admin/AppointmentsPage'
@@ -19,6 +20,7 @@ export default function App() {
       <Route path="/agendar" element={<BookingPage />} />
       <Route path="/confirmacao/:id" element={<ConfirmationPage />} />
       <Route path="/acao/:token/:action" element={<ActionPage />} />
+      <Route path="/pagamento-pendente" element={<PagamentoPendentePage />} />
 
       {/* Admin */}
       <Route path="/admin/login" element={<LoginPage />} />

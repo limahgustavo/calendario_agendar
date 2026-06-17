@@ -1,6 +1,9 @@
+import logging
 import httpx
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ZAPIService:
@@ -22,18 +25,20 @@ class ZAPIService:
 
     async def send_text(self, phone: str, message: str) -> bool:
         if not settings.ZAPI_INSTANCE_ID or not settings.ZAPI_TOKEN:
+            logger.warning("Z-API não configurado (ZAPI_INSTANCE_ID ou ZAPI_TOKEN vazio)")
             return False
+        url = f"{self.base_url}/send-messages/send-text"
         payload = {"phone": self._format_phone(phone), "message": message}
+        logger.info("Z-API send_text → %s phone=%s", url, self._format_phone(phone))
         async with httpx.AsyncClient(timeout=20) as client:
             try:
-                resp = await client.post(
-                    f"{self.base_url}/send-messages/send-text",
-                    json=payload,
-                    headers=self.headers,
-                )
+                resp = await client.post(url, json=payload, headers=self.headers)
+                if not resp.is_success:
+                    logger.error("Z-API error %s: %s", resp.status_code, resp.text)
                 resp.raise_for_status()
                 return True
-            except httpx.HTTPError:
+            except httpx.HTTPError as e:
+                logger.error("Z-API HTTPError: %s", e)
                 return False
 
     async def send_confirmation(

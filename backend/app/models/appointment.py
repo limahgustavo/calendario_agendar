@@ -25,6 +25,7 @@ class Appointment(Base):
     client_name: Mapped[str] = mapped_column(String(100))
     client_email: Mapped[str] = mapped_column(String(255))
     client_phone: Mapped[str] = mapped_column(String(20))
+    client_cpf_cnpj: Mapped[str] = mapped_column(String(20), nullable=True)
 
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[AppointmentStatus] = mapped_column(

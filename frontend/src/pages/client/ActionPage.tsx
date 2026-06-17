@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { appointmentsApi } from '@/api/appointments'
 import { CheckCircle, XCircle, RefreshCw, Loader2 } from 'lucide-react'
 
 type ActionType = 'confirmar' | 'cancelar' | 'remarcar'
 
-const CONFIG: Record<ActionType, { label: string; icon: React.ReactNode; color: string }> = {
+const CONFIG: Record<ActionType, { label: string; icon: ReactNode; color: string }> = {
   confirmar: { label: 'Agendamento confirmado!', icon: <CheckCircle size={64} className="text-green-500" />, color: 'text-green-700' },
   cancelar: { label: 'Agendamento cancelado.', icon: <XCircle size={64} className="text-red-500" />, color: 'text-red-700' },
   remarcar: { label: 'Solicitação de remarcação enviada!', icon: <RefreshCw size={64} className="text-blue-500" />, color: 'text-blue-700' },

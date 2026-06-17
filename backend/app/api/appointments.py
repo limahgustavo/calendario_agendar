@@ -1,7 +1,10 @@
+import logging
 import secrets
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -82,10 +85,11 @@ async def create_appointment(data: AppointmentCreate, db: Session = Depends(get_
     if not service or not service.is_active:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
 
-    # Validate slot exists
-    month_year = data.scheduled_at.strftime("%Y-%m")
-    weekday = data.scheduled_at.weekday()
-    time_str = data.scheduled_at.strftime("%H:%M")
+    # Strip timezone info to work with local datetime as stored
+    scheduled_naive = data.scheduled_at.replace(tzinfo=None)
+    month_year = scheduled_naive.strftime("%Y-%m")
+    weekday = scheduled_naive.weekday()
+    time_str = scheduled_naive.strftime("%H:%M")
 
     slot = db.query(AvailabilitySlot).filter(
         AvailabilitySlot.month_year == month_year,
@@ -97,7 +101,7 @@ async def create_appointment(data: AppointmentCreate, db: Session = Depends(get_
 
     # Check no conflicting appointment
     conflict = db.query(Appointment).filter(
-        Appointment.scheduled_at == data.scheduled_at,
+        Appointment.scheduled_at == scheduled_naive,
         Appointment.status.in_([
             AppointmentStatus.PENDING_PAYMENT,
             AppointmentStatus.CONFIRMED,
@@ -116,7 +120,8 @@ async def create_appointment(data: AppointmentCreate, db: Session = Depends(get_
         client_name=data.client_name,
         client_email=data.client_email,
         client_phone=data.client_phone,
-        scheduled_at=data.scheduled_at,
+        client_cpf_cnpj=data.client_cpf_cnpj,
+        scheduled_at=scheduled_naive,
         notes=data.notes,
         action_token=action_token,
     )
@@ -130,11 +135,12 @@ async def create_appointment(data: AppointmentCreate, db: Session = Depends(get_
 
     try:
         customer_id = await asaas_service.find_or_create_customer(
-            data.client_name, data.client_email, data.client_phone
+            data.client_name, data.client_email, data.client_phone, data.client_cpf_cnpj
         )
         charge = await asaas_service.create_charge(customer_id, deposit, description, due_date)
         payment_link = charge["asaas_payment_link"] or charge["asaas_invoice_url"]
-    except Exception:
+    except Exception as e:
+        logger.error("Asaas charge failed: %s", e, exc_info=True)
         payment_link = f"{settings.FRONTEND_URL}/pagamento-pendente"
         charge = {"asaas_payment_id": None, "asaas_payment_link": payment_link, "asaas_invoice_url": None}
 
@@ -150,7 +156,10 @@ async def create_appointment(data: AppointmentCreate, db: Session = Depends(get_
     db.refresh(appt)
 
     await _send_confirmation_notifications(appt, payment_link, db)
-    _schedule_reminders(appt)
+    try:
+        _schedule_reminders(appt)
+    except Exception:
+        pass  # Celery indisponível não deve cancelar o agendamento já confirmado
 
     return AppointmentBookingResponse(
         appointment_id=appt.id,

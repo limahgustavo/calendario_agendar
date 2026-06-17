@@ -3,6 +3,7 @@ import { dashboardApi } from '@/api/dashboard'
 import { formatCurrency, formatDateTime, STATUS_LABELS, STATUS_COLORS } from '@/lib/utils'
 import { CalendarCheck, TrendingUp, Clock, DollarSign } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import BookingLinkCard from '@/components/admin/BookingLinkCard'
 
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({
@@ -25,6 +26,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      <BookingLinkCard />
+
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
         <p className="text-gray-500 text-sm mt-0.5">{m.month_year.replace('-', '/')}</p>

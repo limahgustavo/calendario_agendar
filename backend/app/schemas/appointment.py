@@ -10,6 +10,7 @@ class AppointmentCreate(BaseModel):
     client_name: str = Field(..., min_length=2, max_length=100)
     client_email: EmailStr
     client_phone: str = Field(..., min_length=8, max_length=20)
+    client_cpf_cnpj: str | None = Field(None, max_length=20)
     notes: str | None = None
 
 

@@ -51,11 +51,9 @@ export default function CalendarPage() {
 
   function proceed() {
     if (!selectedService || !selectedDate || !selectedTime) return
-    sessionStorage.setItem(
-      'booking',
-      JSON.stringify({ service: selectedService, date: selectedDate, time_str: selectedTime }),
-    )
-    navigate('/agendar')
+    navigate('/agendar', {
+      state: { service: selectedService, date: selectedDate, time_str: selectedTime },
+    })
   }
 
   return (
