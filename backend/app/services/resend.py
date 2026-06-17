@@ -1,6 +1,9 @@
+import logging
 import httpx
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ResendService:
@@ -8,6 +11,7 @@ class ResendService:
 
     async def send_email(self, to: str, subject: str, html: str) -> bool:
         if not settings.RESEND_API_KEY:
+            logger.warning("Resend não configurado (RESEND_API_KEY vazia)")
             return False
         payload = {
             "from": f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>",
@@ -22,9 +26,12 @@ class ResendService:
                     json=payload,
                     headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
                 )
+                if not resp.is_success:
+                    logger.error("Resend erro %s (to=%s): %s", resp.status_code, to, resp.text)
                 resp.raise_for_status()
                 return True
-            except httpx.HTTPError:
+            except httpx.HTTPError as e:
+                logger.error("Resend HTTPError (to=%s): %s", to, e)
                 return False
 
     async def send_confirmation(
@@ -69,6 +76,61 @@ class ResendService:
         return await self.send_email(
             to, f"Agendamento confirmado — {service_name} em {scheduled_date}", html
         )
+
+    def _button(self, url: str, label: str) -> str:
+        return (
+            f'<a href="{url}" style="background:#db2777;color:#fff;padding:12px 24px;'
+            f'text-decoration:none;border-radius:8px;display:inline-block;">{label}</a>'
+        )
+
+    def _wrap(self, inner: str) -> str:
+        return (
+            '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">'
+            f"{inner}</div>"
+        )
+
+    async def send_set_password(self, to: str, name: str, link: str) -> bool:
+        html = self._wrap(
+            f'<h2 style="color:#db2777;">Bem-vinda! 💅</h2>'
+            f"<p>Olá, <strong>{name}</strong>!</p>"
+            "<p>Sua conta foi criada. Clique no botão abaixo para definir sua senha "
+            "e acessar seus agendamentos:</p>"
+            f"<p>{self._button(link, 'Criar minha senha')}</p>"
+            '<p style="color:#666;font-size:13px;">O link expira em 48 horas.</p>'
+        )
+        return await self.send_email(to, "Crie sua senha de acesso", html)
+
+    async def send_reset_password(self, to: str, name: str, link: str) -> bool:
+        html = self._wrap(
+            f'<h2 style="color:#db2777;">Redefinir senha</h2>'
+            f"<p>Olá, <strong>{name}</strong>!</p>"
+            "<p>Recebemos um pedido para redefinir sua senha. Clique abaixo:</p>"
+            f"<p>{self._button(link, 'Redefinir senha')}</p>"
+            '<p style="color:#666;font-size:13px;">Se não foi você, ignore este email. '
+            "O link expira em 2 horas.</p>"
+        )
+        return await self.send_email(to, "Redefinir sua senha", html)
+
+    async def send_balance_notice(
+        self, to: str, name: str, valor_restante: float, service_name: str, studio_name: str
+    ) -> bool:
+        html = self._wrap(
+            f'<h2 style="color:#db2777;">Saldo do seu atendimento</h2>'
+            f"<p>Olá, <strong>{name}</strong>!</p>"
+            f"<p>Referente ao seu atendimento de <strong>{service_name}</strong> em "
+            f"<strong>{studio_name}</strong>, há um saldo de "
+            f"<strong>R$ {valor_restante:.2f}</strong> a ser pago presencialmente no studio.</p>"
+        )
+        return await self.send_email(to, "Saldo do seu atendimento", html)
+
+    async def send_payout_notice(self, to: str, name: str, valor_liquido: float) -> bool:
+        html = self._wrap(
+            f'<h2 style="color:#db2777;">Repasse aprovado ✅</h2>'
+            f"<p>Olá, <strong>{name}</strong>!</p>"
+            f"<p>Um repasse de <strong>R$ {valor_liquido:.2f}</strong> foi aprovado e "
+            "transferido para sua conta via PIX.</p>"
+        )
+        return await self.send_email(to, "Seu repasse foi aprovado", html)
 
     async def send_reminder(
         self,

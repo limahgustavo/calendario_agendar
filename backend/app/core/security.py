@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -27,7 +28,7 @@ def create_access_token(subject: str, expires_delta: Optional[timedelta] = None)
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return jwt.encode(
-        {"sub": subject, "exp": expire},
+        {"sub": str(subject), "exp": expire},
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
     )
@@ -46,13 +47,30 @@ def get_current_user(
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: str = payload.get("sub")
+        user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    user = db.get(User, int(user_id))
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        raise credentials_exception
+
+    user = db.get(User, uid)
     if user is None or not user.is_active:
         raise credentials_exception
     return user
+
+
+def require_role(*roles: str):
+    """Dependency factory: garante que o usuário autenticado tem um dos papéis."""
+
+    def checker(user=Depends(get_current_user)):
+        user_role = user.role.value if hasattr(user.role, "value") else user.role
+        if user_role not in roles:
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        return user
+
+    return checker

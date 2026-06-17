@@ -1,28 +1,28 @@
+import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, ForeignKey, DateTime, Text, Enum as SAEnum
+
+from sqlalchemy import String, ForeignKey, DateTime, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-import enum
 
 from app.core.database import Base
+from app.models.base import UUIDMixin, enum_col
+from app.models.enums import NotificationType, NotificationChannel
 
 
-class NotificationType(str, enum.Enum):
-    EMAIL_CONFIRMATION = "email_confirmation"
-    WHATSAPP_CONFIRMATION = "whatsapp_confirmation"
-    WHATSAPP_REMINDER_24H = "whatsapp_reminder_24h"
-    WHATSAPP_REMINDER_2H = "whatsapp_reminder_2h"
-    EMAIL_REMINDER = "email_reminder"
-
-
-class NotificationLog(Base):
+class NotificationLog(Base, UUIDMixin):
     __tablename__ = "notification_logs"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"))
-    type: Mapped[NotificationType] = mapped_column(SAEnum(NotificationType))
+    appointment_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("appointments.id"), nullable=True, index=True
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    type: Mapped[NotificationType] = mapped_column(enum_col(NotificationType))
+    channel: Mapped[NotificationChannel] = mapped_column(enum_col(NotificationChannel))
     recipient: Mapped[str] = mapped_column(String(255))
-    success: Mapped[bool] = mapped_column(default=False)
-    error_message: Mapped[str] = mapped_column(Text, nullable=True)
+    success: Mapped[bool] = mapped_column(Boolean, default=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

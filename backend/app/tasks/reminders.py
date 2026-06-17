@@ -1,85 +1,62 @@
 import asyncio
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
-from app.tasks.celery_app import celery_app
 from app.core.database import SessionLocal
-from app.models.appointment import Appointment, AppointmentStatus
-from app.models.notification_log import NotificationLog, NotificationType
+from app.models.appointment import Appointment
+from app.models.notification_log import NotificationLog
+from app.models.enums import (
+    AppointmentStatus,
+    NotificationType,
+    NotificationChannel,
+)
 from app.services.zapi import zapi_service
 from app.services.resend import resend_service
-from app.core.config import settings
+from app.services.notifications import action_urls
+from app.tasks.celery_app import celery_app
+
+TZ = ZoneInfo("America/Sao_Paulo")
+ACTIVE = (AppointmentStatus.AGENDADO, AppointmentStatus.CONFIRMADO)
 
 
-def _build_action_urls(appointment: Appointment) -> tuple[str, str, str]:
-    base = settings.FRONTEND_URL
-    token = appointment.action_token
-    return (
-        f"{base}/acao/{token}/confirmar",
-        f"{base}/acao/{token}/cancelar",
-        f"{base}/acao/{token}/remarcar",
+def _log(db, appt_id, ntype, channel, recipient, ok):
+    db.add(
+        NotificationLog(
+            appointment_id=appt_id,
+            type=ntype,
+            channel=channel,
+            recipient=recipient,
+            success=ok,
+        )
     )
-
-
-def _log_notification(
-    db,
-    appointment: Appointment,
-    ntype: NotificationType,
-    recipient: str,
-    success: bool,
-    error: str | None = None,
-) -> None:
-    log = NotificationLog(
-        appointment_id=appointment.id,
-        type=ntype,
-        recipient=recipient,
-        success=success,
-        error_message=error,
-    )
-    db.add(log)
-    db.commit()
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=300)
-def send_reminder_24h(self, appointment_id: int):
+def send_reminder_24h(self, appointment_id: str):
     db = SessionLocal()
     try:
-        appt = db.get(Appointment, appointment_id)
-        if not appt or appt.status not in (
-            AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING_PAYMENT
-        ):
+        appt = db.get(Appointment, uuid.UUID(appointment_id))
+        if not appt or appt.status not in ACTIVE or appt.reminder_24h_sent:
             return
+        studio = appt.studio
+        confirm, cancel, _ = action_urls(appt)
+        date_str = appt.data.strftime("%d/%m/%Y")
 
-        if appt.reminder_24h_sent:
-            return
-
-        confirm_url, cancel_url, reschedule_url = _build_action_urls(appt)
-        scheduled_date = appt.scheduled_at.strftime("%d/%m/%Y")
-        scheduled_time = appt.scheduled_at.strftime("%H:%M")
-
-        wa_ok = asyncio.run(
+        wa = asyncio.run(
             zapi_service.send_reminder(
-                appt.client_phone,
-                appt.client_name,
-                appt.service.name,
-                scheduled_date,
-                scheduled_time,
-                hours_before=24,
-                confirm_url=confirm_url,
-                cancel_url=cancel_url,
+                appt.client_phone, appt.client_name, appt.servico_nome,
+                date_str, appt.hora, 24, confirm, cancel, studio_name=studio.name,
             )
         )
-        _log_notification(db, appt, NotificationType.WHATSAPP_REMINDER_24H, appt.client_phone, wa_ok)
+        _log(db, appt.id, NotificationType.WHATSAPP_REMINDER_24H, NotificationChannel.WHATSAPP, appt.client_phone, wa)
 
-        email_ok = asyncio.run(
+        em = asyncio.run(
             resend_service.send_reminder(
-                appt.client_email,
-                appt.client_name,
-                appt.service.name,
-                scheduled_date,
-                scheduled_time,
+                appt.client_email, appt.client_name, appt.servico_nome, date_str, appt.hora
             )
         )
-        _log_notification(db, appt, NotificationType.EMAIL_REMINDER, appt.client_email, email_ok)
+        _log(db, appt.id, NotificationType.EMAIL_REMINDER, NotificationChannel.EMAIL, appt.client_email, em)
 
         appt.reminder_24h_sent = True
         db.commit()
@@ -91,39 +68,25 @@ def send_reminder_24h(self, appointment_id: int):
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=300)
-def send_reminder_2h(self, appointment_id: int):
+def send_reminder_2h(self, appointment_id: str):
     db = SessionLocal()
     try:
-        appt = db.get(Appointment, appointment_id)
-        if not appt or appt.status not in (
-            AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING_PAYMENT
-        ):
+        appt = db.get(Appointment, uuid.UUID(appointment_id))
+        if not appt or appt.status not in ACTIVE or appt.reminder_2h_sent:
             return
+        if appt.confirmado_cliente_at is not None:
+            return  # já confirmou presença
+        studio = appt.studio
+        confirm, cancel, _ = action_urls(appt)
+        date_str = appt.data.strftime("%d/%m/%Y")
 
-        if appt.reminder_2h_sent:
-            return
-
-        # Skip if client already confirmed
-        if appt.client_confirmed_at:
-            return
-
-        confirm_url, cancel_url, _ = _build_action_urls(appt)
-        scheduled_date = appt.scheduled_at.strftime("%d/%m/%Y")
-        scheduled_time = appt.scheduled_at.strftime("%H:%M")
-
-        wa_ok = asyncio.run(
+        wa = asyncio.run(
             zapi_service.send_reminder(
-                appt.client_phone,
-                appt.client_name,
-                appt.service.name,
-                scheduled_date,
-                scheduled_time,
-                hours_before=2,
-                confirm_url=confirm_url,
-                cancel_url=cancel_url,
+                appt.client_phone, appt.client_name, appt.servico_nome,
+                date_str, appt.hora, 2, confirm, cancel, studio_name=studio.name,
             )
         )
-        _log_notification(db, appt, NotificationType.WHATSAPP_REMINDER_2H, appt.client_phone, wa_ok)
+        _log(db, appt.id, NotificationType.WHATSAPP_REMINDER_2H, NotificationChannel.WHATSAPP, appt.client_phone, wa)
 
         appt.reminder_2h_sent = True
         db.commit()
@@ -132,3 +95,17 @@ def send_reminder_2h(self, appointment_id: int):
         raise self.retry(exc=exc)
     finally:
         db.close()
+
+
+def schedule_reminders(appt: Appointment) -> None:
+    """Agenda lembretes 24h e 2h antes via Celery (eta)."""
+    sched = appt.scheduled_at
+    if sched.tzinfo is None:
+        sched = sched.replace(tzinfo=TZ)
+    now = datetime.now(timezone.utc)
+    eta_24h = sched - timedelta(hours=24)
+    eta_2h = sched - timedelta(hours=2)
+    if eta_24h > now:
+        send_reminder_24h.apply_async(args=[str(appt.id)], eta=eta_24h)
+    if eta_2h > now:
+        send_reminder_2h.apply_async(args=[str(appt.id)], eta=eta_2h)

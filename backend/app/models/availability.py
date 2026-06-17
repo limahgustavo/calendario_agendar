@@ -1,30 +1,29 @@
-from datetime import datetime, timezone
-from sqlalchemy import String, Integer, ForeignKey, DateTime, UniqueConstraint
+import uuid
+
+from sqlalchemy import Integer, ForeignKey, UniqueConstraint, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.base import UUIDMixin, TimestampMixin
 
 
-class AvailabilitySlot(Base):
+class Availability(Base, UUIDMixin, TimestampMixin):
     """
-    Representa um slot de horário disponível configurado pela profissional.
-    month_year: formato 'YYYY-MM' (ex: '2026-03')
-    weekday: 0=Segunda ... 6=Domingo
-    time_str: '08:00', '13:00', etc.
+    Configuração de disponibilidade de um studio por mês.
+    dias_semana: lista de inteiros [0..6] (0=Segunda ... 6=Domingo)
+    horarios: lista de strings 'HH:MM' (ex: ['08:00', '13:00'])
+    Os slots concretos do calendário são computados on-the-fly cruzando
+    dias_semana x horarios x agendamentos existentes.
     """
-    __tablename__ = "availability_slots"
+    __tablename__ = "availability"
     __table_args__ = (
-        UniqueConstraint("user_id", "month_year", "weekday", "time_str", name="uq_slot"),
+        UniqueConstraint("studio_id", "ano", "mes", name="uq_availability_studio_month"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    month_year: Mapped[str] = mapped_column(String(7))  # YYYY-MM
-    weekday: Mapped[int] = mapped_column(Integer)        # 0-6
-    time_str: Mapped[str] = mapped_column(String(5))     # HH:MM
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-    )
+    studio_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("studios.id"), index=True)
+    ano: Mapped[int] = mapped_column(Integer)
+    mes: Mapped[int] = mapped_column(Integer)  # 1-12
+    dias_semana: Mapped[list] = mapped_column(JSON, default=list)
+    horarios: Mapped[list] = mapped_column(JSON, default=list)
 
-    user: Mapped["User"] = relationship(back_populates="availability_slots")
+    studio: Mapped["Studio"] = relationship()

@@ -2,16 +2,18 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-from app.main import app
+from app.main import app  # app.main já importa app.models (registra as tabelas)
 from app.core.database import Base, get_db
 from app.core.security import hash_password
 from app.models.user import User
-
-SQLALCHEMY_TEST_URL = "sqlite:///:memory:"
+from app.models.enums import UserRole
 
 engine_test = create_engine(
-    SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False}
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine_test)
 
@@ -28,12 +30,15 @@ def override_get_db():
 def setup_db():
     Base.metadata.create_all(bind=engine_test)
     db = TestingSessionLocal()
-    admin = User(
-        name="Admin",
-        email="admin@test.com",
-        hashed_password=hash_password("testpass123"),
+    db.add(
+        User(
+            name="Admin",
+            email="admin@test.com",
+            password_hash=hash_password("testpass123"),
+            role=UserRole.ADMIN,
+            email_verified=True,
+        )
     )
-    db.add(admin)
     db.commit()
     db.close()
     yield
@@ -49,7 +54,8 @@ def client():
 
 
 @pytest.fixture
-def auth_headers(client):
-    resp = client.post("/api/auth/login", json={"email": "admin@test.com", "password": "testpass123"})
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+def admin_headers(client):
+    resp = client.post(
+        "/api/auth/login", json={"email": "admin@test.com", "password": "testpass123"}
+    )
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}

@@ -1,15 +1,15 @@
 import api from './client'
-import type { CalendarSlot } from '@/types'
+import type { CalendarSlot, Availability } from '@/types'
 
 export const availabilityApi = {
-  getCalendar: (monthYear: string) =>
-    api.get<CalendarSlot[]>('/availability/calendar', { params: { month_year: monthYear } }).then((r) => r.data),
+  publicCalendar: (slug: string, month: string) =>
+    api
+      .get<CalendarSlot[]>(`/availability/${slug}/calendar`, { params: { month } })
+      .then((r) => r.data),
 
-  listSlots: (monthYear: string) =>
-    api.get('/availability', { params: { month_year: monthYear } }).then((r) => r.data),
+  getConfig: (ano: number, mes: number) =>
+    api.get<Availability | null>('/availability', { params: { ano, mes } }).then((r) => r.data),
 
-  bulkCreate: (data: { month_year: string; weekdays: number[]; times: string[] }) =>
-    api.post('/availability/bulk', data).then((r) => r.data),
-
-  deleteSlot: (id: number) => api.delete(`/availability/${id}`),
+  upsertConfig: (data: { ano: number; mes: number; dias_semana: number[]; horarios: string[] }) =>
+    api.post<Availability>('/availability', data).then((r) => r.data),
 }

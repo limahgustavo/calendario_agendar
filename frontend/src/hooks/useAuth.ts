@@ -1,21 +1,38 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { authApi } from '@/api/auth'
+import type { UserRole } from '@/types'
 
 export function useAuth() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
-    !!localStorage.getItem('token'),
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
+  const [role, setRole] = useState<UserRole | null>(
+    localStorage.getItem('role') as UserRole | null,
   )
 
-  async function login(email: string, password: string): Promise<void> {
-    const { access_token } = await authApi.login(email, password)
+  function setSession(access_token: string, r: UserRole) {
     localStorage.setItem('token', access_token)
-    setIsAuthenticated(true)
+    localStorage.setItem('role', r)
+    setToken(access_token)
+    setRole(r)
+  }
+
+  async function login(email: string, password: string): Promise<UserRole> {
+    const res = await authApi.login(email, password)
+    setSession(res.access_token, res.role)
+    return res.role
   }
 
   function logout() {
     localStorage.removeItem('token')
-    setIsAuthenticated(false)
+    localStorage.removeItem('role')
+    setToken(null)
+    setRole(null)
   }
 
-  return { isAuthenticated, login, logout }
+  return { token, role, isAuthenticated: !!token, login, setSession, logout }
+}
+
+export function homeForRole(role: UserRole | null): string {
+  if (role === 'admin') return '/admin'
+  if (role === 'nail_designer') return '/studio'
+  return '/app'
 }

@@ -9,22 +9,33 @@ logger = logging.getLogger(__name__)
 
 class AsaasService:
     def __init__(self):
-        self.base_url = settings.ASAAS_BASE_URL
         self.headers = {
             "access_token": settings.ASAAS_API_KEY,
             "Content-Type": "application/json",
         }
 
-    async def _post(self, path: str, body: dict) -> dict[str, Any]:
+    @property
+    def base_url(self) -> str:
+        return settings.ASAAS_BASE_URL
+
+    async def _request(self, method: str, path: str, body: dict | None = None) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(f"{self.base_url}{path}", json=body, headers=self.headers)
+            resp = await client.request(
+                method, f"{self.base_url}{path}", json=body, headers=self.headers
+            )
             if not resp.is_success:
-                logger.error("Asaas error %s %s: %s", resp.status_code, path, resp.text)
+                logger.error("Asaas %s %s -> %s: %s", method, path, resp.status_code, resp.text)
             resp.raise_for_status()
             return resp.json()
 
-    async def find_or_create_customer(self, name: str, email: str, phone: str, cpf_cnpj: str | None = None) -> str:
-        """Returns Asaas customer ID, creating or updating as needed."""
+    async def _post(self, path: str, body: dict) -> dict[str, Any]:
+        return await self._request("POST", path, body)
+
+    # ---- Clientes ----
+    async def find_or_create_customer(
+        self, name: str, email: str, phone: str, cpf_cnpj: str | None = None
+    ) -> str:
+        """Retorna o ID do cliente no Asaas, criando ou atualizando se necessário."""
         cpf_digits = "".join(filter(str.isdigit, cpf_cnpj)) if cpf_cnpj else None
 
         async with httpx.AsyncClient(timeout=30) as client:
@@ -38,7 +49,6 @@ class AsaasService:
             if data.get("data"):
                 customer = data["data"][0]
                 customer_id = customer["id"]
-                # Update CPF if customer exists without it
                 if cpf_digits and not customer.get("cpfCnpj"):
                     await client.put(
                         f"{self.base_url}/customers/{customer_id}",
@@ -53,17 +63,14 @@ class AsaasService:
         result = await self._post("/customers", payload)
         return result["id"]
 
+    # ---- Cobranças ----
     async def create_charge(
-        self,
-        customer_id: str,
-        amount: float,
-        description: str,
-        due_date: str,  # YYYY-MM-DD
+        self, customer_id: str, amount: float, description: str, due_date: str
     ) -> dict[str, Any]:
-        """Creates a charge and returns payment link and ID."""
+        """Cria cobrança (PIX/boleto/cartão) e retorna link e ID."""
         payload = {
             "customer": customer_id,
-            "billingType": "UNDEFINED",  # cliente escolhe PIX/boleto/cartão
+            "billingType": "UNDEFINED",
             "value": round(amount, 2),
             "dueDate": due_date,
             "description": description,
@@ -72,9 +79,38 @@ class AsaasService:
         result = await self._post("/payments", payload)
         return {
             "asaas_payment_id": result["id"],
-            "asaas_payment_link": result.get("invoiceUrl") or result.get("bankSlipUrl", ""),
-            "asaas_invoice_url": result.get("invoiceUrl", ""),
+            "asaas_invoice_url": result.get("invoiceUrl") or result.get("bankSlipUrl", ""),
         }
+
+    # ---- Transferências (repasses) ----
+    async def create_transfer(
+        self, pix_key: str, value: float, description: str | None = None
+    ) -> dict[str, Any]:
+        """Transfere via PIX para a chave do studio. Retorna {asaas_transfer_id, status}."""
+        payload: dict[str, Any] = {
+            "value": round(value, 2),
+            "pixAddressKey": pix_key,
+            "operationType": "PIX",
+        }
+        if description:
+            payload["description"] = description
+        result = await self._post("/transfers", payload)
+        return {"asaas_transfer_id": result.get("id"), "status": result.get("status")}
+
+    # ---- Assinaturas (planos dos studios) ----
+    async def create_subscription(
+        self, customer_id: str, value: float, description: str, next_due_date: str
+    ) -> dict[str, Any]:
+        payload = {
+            "customer": customer_id,
+            "billingType": "UNDEFINED",
+            "value": round(value, 2),
+            "cycle": "MONTHLY",
+            "description": description,
+            "nextDueDate": next_due_date,
+        }
+        result = await self._post("/subscriptions", payload)
+        return {"asaas_subscription_id": result.get("id"), "status": result.get("status")}
 
 
 asaas_service = AsaasService()
