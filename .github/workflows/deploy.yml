@@ -1,0 +1,30 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Trigger Render deploy
+    runs-on: ubuntu-latest
+    needs: []  # runs after CI passes via branch protection
+
+    steps:
+      - name: Deploy backend
+        run: |
+          curl -s --fail \
+            -X POST "${{ secrets.RENDER_BACKEND_DEPLOY_HOOK }}" \
+            -o /dev/null
+
+      - name: Deploy frontend
+        run: |
+          curl -s --fail \
+            -X POST "${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK }}" \
+            -o /dev/null
+
+      - name: Deploy worker
+        run: |
+          curl -s --fail \
+            -X POST "${{ secrets.RENDER_WORKER_DEPLOY_HOOK }}" \
+            -o /dev/null
