@@ -11,39 +11,25 @@ services:
         generateValue: true
       - key: DEBUG
         value: "false"
-      - key: MYSQL_HOST
+      - key: DATABASE_URL
         fromDatabase:
           name: nail-db
-          property: host
-      - key: MYSQL_PORT
-        fromDatabase:
-          name: nail-db
-          property: port
-      - key: MYSQL_USER
-        fromDatabase:
-          name: nail-db
-          property: user
-      - key: MYSQL_PASSWORD
-        fromDatabase:
-          name: nail-db
-          property: password
-      - key: MYSQL_DATABASE
-        fromDatabase:
-          name: nail-db
-          property: database
+          property: connectionString
       - key: REDIS_URL
         fromService:
           type: redis
           name: nail-redis
           property: connectionString
       - key: FRONTEND_URL
-        sync: false   # Set manually to your frontend URL
+        sync: false
       - key: ASAAS_API_KEY
         sync: false
       - key: ASAAS_ENVIRONMENT
-        value: production
+        value: sandbox
       - key: ASAAS_WEBHOOK_TOKEN
         generateValue: true
+      - key: ZAPI_API_URL
+        value: "https://api.z-api.io"
       - key: ZAPI_INSTANCE_ID
         sync: false
       - key: ZAPI_TOKEN
@@ -70,7 +56,66 @@ services:
     dockerCommand: celery -A app.tasks.celery_app worker --loglevel=info
     plan: free
     envVars:
-      - fromGroup: nail-backend
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nail-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: nail-redis
+          property: connectionString
+      - key: ASAAS_API_KEY
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: ASAAS_API_KEY
+      - key: ASAAS_ENVIRONMENT
+        value: sandbox
+      - key: ASAAS_WEBHOOK_TOKEN
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: ASAAS_WEBHOOK_TOKEN
+      - key: ZAPI_API_URL
+        value: "https://api.z-api.io"
+      - key: ZAPI_INSTANCE_ID
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: ZAPI_INSTANCE_ID
+      - key: ZAPI_TOKEN
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: ZAPI_TOKEN
+      - key: ZAPI_CLIENT_TOKEN
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: ZAPI_CLIENT_TOKEN
+      - key: RESEND_API_KEY
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: RESEND_API_KEY
+      - key: EMAIL_FROM
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: EMAIL_FROM
+      - key: EMAIL_FROM_NAME
+        value: "Nail Studio"
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: nail-backend
+          envVarKey: FRONTEND_URL
 
   # Frontend (Static Site)
   - type: web
@@ -86,6 +131,7 @@ services:
 
 databases:
   - name: nail-db
+    databaseName: nail_booking
     plan: free
 
   - name: nail-redis

@@ -12,14 +12,24 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8h
 
     # Database
+    # DATABASE_URL pode ser definida diretamente (Render injeta automaticamente)
+    # ou construída a partir das variáveis MYSQL_* (local/docker)
+    DATABASE_URL: str = ""
+
     MYSQL_HOST: str = "db"
     MYSQL_PORT: int = 3306
-    MYSQL_USER: str
-    MYSQL_PASSWORD: str
-    MYSQL_DATABASE: str
+    MYSQL_USER: str = ""
+    MYSQL_PASSWORD: str = ""
+    MYSQL_DATABASE: str = ""
 
-    @property
-    def DATABASE_URL(self) -> str:
+    def get_database_url(self) -> str:
+        if self.DATABASE_URL:
+            # Render injeta postgres://... — SQLAlchemy precisa de postgresql+psycopg2://
+            url = self.DATABASE_URL
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+            return url
+        # fallback: monta MySQL para docker local
         return (
             f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
             f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
@@ -43,7 +53,6 @@ class Settings(BaseSettings):
         return "https://sandbox.asaas.com/api/v3"
 
     # Z-API (WhatsApp)
-    # ZAPI_API_URL: URL base da instância (ex: https://api.z-api.io ou URL customizada do plano)
     ZAPI_API_URL: str = "https://api.z-api.io"
     ZAPI_INSTANCE_ID: str = ""
     ZAPI_TOKEN: str = ""
@@ -54,7 +63,7 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "noreply@seudominio.com"
     EMAIL_FROM_NAME: str = "Nail Designer"
 
-    # Admin default (usado na migration seed)
+    # Admin default (usado no seed)
     ADMIN_EMAIL: str = "admin@example.com"
     ADMIN_PASSWORD: str = "changeme123"
 
